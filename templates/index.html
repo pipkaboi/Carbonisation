@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Карбонизация</title>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial; background: #1a1a2e; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; }
+        .card { background: white; border-radius: 20px; padding: 30px; max-width: 600px; width: 100%; }
+        h1 { text-align: center; color: #1a1a2e; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+        .sensor { background: #f0f0f0; padding: 15px; border-radius: 10px; text-align: center; }
+        .sensor-value { font-size: 24px; font-weight: bold; color: #667eea; }
+        .actuator { background: #f0f0f0; padding: 10px; border-radius: 10px; text-align: center; }
+        .on { color: #48bb78; font-weight: bold; }
+        .off { color: #f56565; }
+        button { padding: 15px 30px; font-size: 18px; margin: 10px; border: none; border-radius: 10px; cursor: pointer; }
+        .start { background: #48bb78; color: white; width: 200px; }
+        .stop { background: #f56565; color: white; width: 200px; }
+        .buttons { text-align: center; margin-top: 20px; }
+        .status { text-align: center; margin-top: 20px; font-size: 18px; font-weight: bold; }
+        .sliders {  
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .slider-item {
+            margin: 10px 0;
+        }
+        .slider-item label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .slider-item input {
+            width: 100%;
+        }
+        .error-box {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #f56565;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            z-index: 1000;
+            max-width: 300px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    {% if error_message %}
+    <div class="error-box" id="errorBox">{{ error_message }}</div>
+    {% endif %}
+    <div class="card">
+        <h1>Карбонизация воды в баке</h1>
+        
+        <div class="grid">
+            <div class="sensor">
+                <div>Давление</div>
+                <div id="pressureValue" class="sensor-value">{{ pressure }} бар</div>
+            </div>
+            <div class="sensor">
+                <div>Уровень воды</div>
+                <div id="waterValue" class="sensor-value">{{ water }}%</div>
+            </div>
+            <div class="sensor">
+                <div>Температура</div>
+                <div id="tempValue" class="sensor-value">{{ temp }}°C</div>
+            </div>
+            <div class="sensor">
+                <div>Статус</div>
+                <div id="statusValue" class="sensor-value"> {{ status }}</div>
+            </div>
+        </div>
+        
+        <div class="grid">
+            <div class="actuator">Клапан CO₂: <span id="valveCo2Value" class="{{ 'on' if valve_co2 else 'off' }}">{{ 'ОТКРЫТ' if valve_co2 else 'ЗАКРЫТ' }}</span></div>
+            <div class="actuator">Клапан воды: <span id="valveWaterValue" class="{{ 'on' if valve_water else 'off' }}">{{ 'ОТКРЫТ' if valve_water else 'ЗАКРЫТ' }}</span></div>
+            <div class="actuator">Клапан продукта: <span id="valveProductionValue" class="{{ 'on' if valve_production else 'off' }}">{{ 'ОТКРЫТ' if valve_production else 'ЗАКРЫТ' }}</span></div>
+            <div class="actuator">Насос воды: <span id="pumpWaterValue" class="{{ 'on' if pump_water else 'off' }}">{{ 'ВКЛ' if pump_water else 'ВЫКЛ' }}</span></div>
+            <div class="actuator">Клапан сброса давления: <span id="pressureReleaseValue" class="{{ 'on' if pressure_release else 'off' }}">{{ 'ОТКРЫТ' if pressure_release else 'ЗАКРЫТ' }}</span></div>
+        </div>
+        
+        <!-- Ползунки для ручной регулировки датчиков -->
+        <div class="sliders">
+            <h1>Эмуляция датчиков</h1>
+
+            <div class="slider-item">
+                <label>Давление: <span id="pressureVal">{{ pressure }}</span> бар</label>
+                <input type="range" id="pressureSlider" min="0" max="3" step="0.1" value="{{ pressure }}" onchange="setPressure(this.value)">
+            </div>
+            <div class="slider-item">
+                <label>Уровень воды: <span id="waterVal">{{ water }}</span>%</label>
+                <input type="range" id="waterSlider" min="0" max="100" step="1" value="{{ water }}" onchange="setWater(this.value)">
+            </div>
+            <div class="slider-item">
+                <label>Температура: <span id="tempVal">{{ temp }}</span>°C</label>
+                <input type="range" id="tempSlider" min="-20" max="80" step="1" value="{{ temp }}" onchange="setTemp(this.value)">
+            </div>
+        </div>
+    
+        <!-- Ползунок целевого давления -->
+        <div class="slider-item" style="background: #f0f0f0; padding: 15px; border-radius: 10px; margin-top: 20px;">
+            <label>Установка целевого давления: <span id="targetVal">{{ target_pressure }}</span> бар</label>
+            <input type="range" id="targetSlider" min="0.5" max="3.0" step="0.1" value="{{ target_pressure }}">
+        </div>
+
+        <div class="buttons">
+            <button class="start" onclick="location.href='/start'">ЗАПУСТИТЬ</button>
+            <button class="stop" onclick="location.href='/stop'">ОСТАНОВИТЬ</button>
+            <button class="start" onmousedown="setRelease(true)" onmouseup="setRelease(false)" onmouseleave="setRelease(false)" ontouchstart="setRelease(true)" ontouchend="setRelease(false)">ВЫПУСК</button>
+        </div>
+    </div>
+    
+    <script>
+        // Ползунок давления
+        const pressureSlider = document.getElementById('pressureSlider');
+        const pressureVal = document.getElementById('pressureVal');
+        pressureSlider.addEventListener('input', function() {
+            const val = this.value;
+            pressureVal.innerText = val;
+            fetch('/set_pressure', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({value: parseFloat(val)})
+            });
+        });
+        
+        // Ползунок уровня воды
+        const waterSlider = document.getElementById('waterSlider');
+        const waterVal = document.getElementById('waterVal');
+        waterSlider.addEventListener('input', function() {
+            const val = this.value;
+            waterVal.innerText = val;
+            fetch('/set_water', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({value: parseFloat(val)})
+            });
+        });
+        
+        // Ползунок температуры
+        const tempSlider = document.getElementById('tempSlider');
+        const tempVal = document.getElementById('tempVal');
+        tempSlider.addEventListener('input', function() {
+            const val = this.value;
+            tempVal.innerText = val;
+            fetch('/set_temp', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({value: parseFloat(val)})
+            });
+        });
+        // Ползунок целевого давления
+        const targetSlider = document.getElementById('targetSlider');
+        const targetVal = document.getElementById('targetVal');
+        targetSlider.addEventListener('input', function() {
+            const val = this.value;
+            targetVal.innerText = val;
+            fetch('/set_target', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({pressure: parseFloat(val)})
+            });
+        });
+
+        function setRelease(pressed) {
+            fetch('/release', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({pressed: pressed})
+            }).catch(console.error);
+        }
+
+        function updateStatus() {
+            fetch('/status')
+                .then(resp => resp.json())
+                .then(data => {
+                    document.getElementById('pressureValue').innerText = `${data.pressure} бар`;
+                    document.getElementById('waterValue').innerText = `${data.water}%`;
+                    document.getElementById('tempValue').innerText = `${data.temp}°C`;
+                    document.getElementById('statusValue').innerText = data.state_name;
+                    document.getElementById('valveCo2Value').innerText = data.valve_co2 ? 'ОТКРЫТ' : 'ЗАКРЫТ';
+                    document.getElementById('valveCo2Value').className = data.valve_co2 ? 'on' : 'off';
+                    document.getElementById('valveWaterValue').innerText = data.valve_water ? 'ОТКРЫТ' : 'ЗАКРЫТ';
+                    document.getElementById('valveWaterValue').className = data.valve_water ? 'on' : 'off';
+                    document.getElementById('valveProductionValue').innerText = data.valve_production ? 'ОТКРЫТ' : 'ЗАКРЫТ';
+                    document.getElementById('valveProductionValue').className = data.valve_production ? 'on' : 'off';
+                    document.getElementById('pumpWaterValue').innerText = data.pump_water ? 'ВКЛ' : 'ВЫКЛ';
+                    document.getElementById('pumpWaterValue').className = data.pump_water ? 'on' : 'off';
+                    document.getElementById('pressureReleaseValue').innerText = data.pressure_release ? 'ОТКРЫТ' : 'ЗАКРЫТ';
+                    document.getElementById('pressureReleaseValue').className = data.pressure_release ? 'on' : 'off';
+                    document.getElementById('targetVal').innerText = data.target_pressure;
+                    document.getElementById('targetSlider').value = data.target_pressure;
+                    document.getElementById('pressureSlider').value = data.pressure;
+                    document.getElementById('waterSlider').value = data.water;
+                    document.getElementById('tempSlider').value = data.temp;
+                    const errorBox = document.getElementById('errorBox');
+                    if (data.error_message) {
+                        errorBox.innerText = data.error_message;
+                        errorBox.style.display = 'block';
+                    } else {
+                        errorBox.style.display = 'none';
+                    }
+                })
+                .catch(console.error);
+        }
+
+        setInterval(updateStatus, 1000);
+        updateStatus();
+
+    </script>
+</body>
+</html>
