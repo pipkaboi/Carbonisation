@@ -35,6 +35,7 @@
             width: 100%;
         }
         .error-box {
+            display: none;
             position: fixed;
             top: 10px;
             right: 10px;
@@ -47,12 +48,14 @@
             max-width: 300px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
         }
+
+        .error-box.visible {
+            display: block;
+        }
     </style>
 </head>
 <body>
-    {% if error_message %}
-    <div class="error-box" id="errorBox">{{ error_message }}</div>
-    {% endif %}
+    <div class="error-box" id="errorBox"></div>
     <div class="card">
         <h1>Карбонизация воды в баке</h1>
         
@@ -81,6 +84,7 @@
             <div class="actuator">Клапан продукта: <span id="valveProductionValue" class="{{ 'on' if valve_production else 'off' }}">{{ 'ОТКРЫТ' if valve_production else 'ЗАКРЫТ' }}</span></div>
             <div class="actuator">Насос воды: <span id="pumpWaterValue" class="{{ 'on' if pump_water else 'off' }}">{{ 'ВКЛ' if pump_water else 'ВЫКЛ' }}</span></div>
             <div class="actuator">Клапан сброса давления: <span id="pressureReleaseValue" class="{{ 'on' if pressure_release else 'off' }}">{{ 'ОТКРЫТ' if pressure_release else 'ЗАКРЫТ' }}</span></div>
+            <div class="actuator">Кнопка RELEASE: <span id="buttonReleaseValue" class="{{ 'on' if button_release else 'off' }}">{{ 'НАЖАТА' if button_release else 'ОТЖАТА' }}</span></div>
         </div>
         
         <!-- Ползунки для ручной регулировки датчиков -->
@@ -108,8 +112,8 @@
         </div>
 
         <div class="buttons">
-            <button class="start" onclick="location.href='/start'">ЗАПУСТИТЬ</button>
-            <button class="stop" onclick="location.href='/stop'">ОСТАНОВИТЬ</button>
+            <button class="start" onclick="startProcess()">ЗАПУСТИТЬ</button>
+            <button class="stop" onclick="stopProcess()">ОСТАНОВИТЬ</button>
             <button class="start" onmousedown="setRelease(true)" onmouseup="setRelease(false)" onmouseleave="setRelease(false)" ontouchstart="setRelease(true)" ontouchend="setRelease(false)">ВЫПУСК</button>
         </div>
     </div>
@@ -174,6 +178,24 @@
             }).catch(console.error);
         }
 
+        function startProcess() {
+            fetch('/start', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(() => updateStatus())
+            .catch(console.error);
+        }
+
+        function stopProcess() {
+            fetch('/stop', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(() => updateStatus())
+            .catch(console.error);
+        }
+
         function updateStatus() {
             fetch('/status')
                 .then(resp => resp.json())
@@ -192,18 +214,18 @@
                     document.getElementById('pumpWaterValue').className = data.pump_water ? 'on' : 'off';
                     document.getElementById('pressureReleaseValue').innerText = data.pressure_release ? 'ОТКРЫТ' : 'ЗАКРЫТ';
                     document.getElementById('pressureReleaseValue').className = data.pressure_release ? 'on' : 'off';
+                    document.getElementById('buttonReleaseValue').innerText = data.button_release ? 'НАЖАТА' : 'ОТЖАТА';
+                    document.getElementById('buttonReleaseValue').className = data.button_release ? 'on' : 'off';
                     document.getElementById('targetVal').innerText = data.target_pressure;
                     document.getElementById('targetSlider').value = data.target_pressure;
                     document.getElementById('pressureSlider').value = data.pressure;
                     document.getElementById('waterSlider').value = data.water;
                     document.getElementById('tempSlider').value = data.temp;
                     const errorBox = document.getElementById('errorBox');
-                    if (data.error_message) {
-                        errorBox.innerText = data.error_message;
-                        errorBox.style.display = 'block';
-                    } else {
-                        errorBox.style.display = 'none';
-                    }
+                    console.log('status update', data);
+                    errorBox.textContent = data.error_message || '';
+                    errorBox.classList.toggle('visible', !!data.error_message);
+                    errorBox.style.display = data.error_message ? 'block' : 'none';
                 })
                 .catch(console.error);
         }

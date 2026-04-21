@@ -25,15 +25,15 @@ def index():
         )
 
 
-@app.route('/start')
+@app.route('/start', methods=['POST'])
 def start():
-    machine.start()
-    return index()
+    result = machine.start()
+    return jsonify({'success': result, 'message': 'Process started' if result else 'Failed to start'})
 
-@app.route('/stop')
+@app.route('/stop', methods=['POST'])
 def stop():
-    machine.stop()
-    return index()
+    result = machine.stop()
+    return jsonify({'success': result, 'message': 'Process stopped' if result else 'Failed to stop'})
 
 @app.route('/release', methods=['POST'])
 def release():
@@ -78,12 +78,7 @@ def set_temp():
 
 @app.route('/status')
 def status():
-    data = machine.get_status()
-    data.update({
-        'button_release': button_release.value,
-        'pressure_release': pressure_release.value,
-    })
-    return jsonify(data)
+    return jsonify(machine.get_status())
 
 
 if __name__ == '__main__':
