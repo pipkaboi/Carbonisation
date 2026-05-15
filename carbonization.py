@@ -122,6 +122,10 @@ class CarbonationStateMachine:
                         # переходим к состоянию RELEASE, чтобы сбросить давление
                         print("Давление превысило безопасность, переходим в состояние РОЗЛИВ для сброса давления")
                         break
+                    if water_sensor.value < 0.1:
+                        print("Вода закончилась во время карбонизации, переходим к состоянию НАПОЛНЕНИЕ ВОДОЙ")
+                        self.state = self.STATE_FILL_WATER
+                        break
                     time.sleep(0.2)
                 valve_co2.off()
                 if pressure_release.value:

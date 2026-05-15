@@ -224,8 +224,11 @@
                     const errorBox = document.getElementById('errorBox');
                     console.log('status update', data);
                     errorBox.textContent = data.error_message || '';
-                    errorBox.classList.toggle('visible', !!data.error_message);
-                    errorBox.style.display = data.error_message ? 'block' : 'none';
+                    if (data.error_message) {
+                        errorBox.classList.add('visible');
+                    } else {
+                        errorBox.classList.remove('visible');
+                    }
                 })
                 .catch(console.error);
         }
